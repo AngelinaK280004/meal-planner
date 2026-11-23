@@ -1,269 +1,223 @@
-# Требования и критерии приёмки
+# ERD — модель данных
 
-Формат: **User story** (роль → действие → ценность) + **Gherkin-сценарии приёмки** (Given / When / Then). Приоритеты — MoSCoW.
+> Всего — 19 таблиц, нормализация до 4NF.
 
-## Легенда
+## Диаграмма
 
-- `FR` — функциональное требование
-- `NFR` — нефункциональное требование
-- `M / S / C / W` — Must / Should / Could / Won't (MoSCoW)
-- `[СВЕРИТЬ]` — уточнить по фактической реализации
+```mermaid
+erDiagram
+    USERS ||--o{ USER_DIETARY_MASKS : has
+    USERS ||--o{ USER_ALLERGIES : has
+    USERS ||--o{ USER_EXCLUDED_INGREDIENTS : excludes
+    USERS ||--o{ FAVORITES : favorites
+    USERS ||--o{ RECIPE_RATINGS : rates
+    USERS ||--o{ USER_STOCK : owns
+    USERS ||--o{ MENUS : creates
+    USERS ||--o{ SHOPPING_LISTS : owns
 
----
+    DIETARY_MASKS ||--o{ USER_DIETARY_MASKS : "assigned to"
 
-## FR-01 (M) Аутентификация и роли
+    CUISINES ||--o{ RECIPES : classifies
+    RECIPE_CATEGORIES ||--o{ RECIPES : classifies
+    INGREDIENT_CATEGORIES ||--o{ INGREDIENTS : classifies
 
-**User story.** Как пользователь, я хочу зарегистрироваться и войти по email и паролю, чтобы получить доступ к своему профилю и данным.
+    RECIPES ||--o{ RECIPE_INGREDIENTS : contains
+    INGREDIENTS ||--o{ RECIPE_INGREDIENTS : "used in"
 
-**Acceptance criteria.**
+    RECIPES ||--o{ FAVORITES : "in favorites"
+    RECIPES ||--o{ RECIPE_RATINGS : "rated by"
 
-```gherkin
-Feature: Аутентификация
+    INGREDIENTS ||--o{ USER_ALLERGIES : allergen
+    INGREDIENTS ||--o{ USER_EXCLUDED_INGREDIENTS : excluded
+    INGREDIENTS ||--o{ USER_STOCK : stocked
 
-  Сценарий: Успешный вход
-    Given пользователь зарегистрирован с email "user@example.com" и паролем "secret"
-    When пользователь отправляет POST /api/auth.php?action=login с корректными данными
-    Then ответ содержит 200 и активную сессию
-    And пароль в БД хранится как bcrypt-хеш
+    MENUS ||--o{ MENU_ITEMS : contains
+    RECIPES ||--o{ MENU_ITEMS : planned
 
-   Сценарий: Неверный пароль
-    Given пользователь зарегистрирован
-    When пользователь вводит неверный пароль
-    Then ответ содержит 401
-    And в ответе нет информации о существовании пользователя с таким email
+    MENUS ||--o{ SHOPPING_LISTS : generates
+    SHOPPING_LISTS ||--o{ SHOPPING_LIST_ITEMS : contains
+    INGREDIENTS ||--o{ SHOPPING_LIST_ITEMS : listed
 
-   Сценарий: Доступ к админ-эндпоинту без роли администратора
-    Given пользователь с ролью "user" аутентифицирован
-    When пользователь вызывает /api/admin.php
-    Then ответ содержит 403
+    USERS {
+        int id PK
+        string email UK
+        string password_hash
+        enum role "user|admin"
+        string first_name
+        enum gender "male|female"
+        date birth_date
+        decimal height_cm
+        decimal weight_kg
+        enum activity_level "1.2|1.375|1.55|1.725|1.9"
+        enum goal "lose|maintain|gain"
+        int dietary_mask "битовая маска"
+        datetime created_at
+        datetime updated_at
+    }
+
+    DIETARY_MASKS {
+        int id PK
+        string code UK
+        string name
+        int bit_position "0..9"
+    }
+
+    USER_DIETARY_MASKS {
+        int user_id FK
+        int mask_id FK
+    }
+
+    INGREDIENTS {
+        int id PK
+        string name
+        int category_id FK
+        decimal calories_per_100g
+        decimal protein_per_100g
+        decimal fat_per_100g
+        decimal carbs_per_100g
+        string unit "g|ml|pcs"
+    }
+
+    INGREDIENT_CATEGORIES {
+        int id PK
+        string name
+    }
+
+    CUISINES {
+        int id PK
+        string name
+    }
+
+    RECIPE_CATEGORIES {
+        int id PK
+        string name
+    }
+
+    RECIPES {
+        int id PK
+        string title
+        string description
+        string image_url
+        int cuisine_id FK
+        int category_id FK
+        int cooking_time_min
+        enum difficulty "easy|medium|hard"
+        int servings
+        int dietary_mask "битовая маска"
+        decimal calories
+        decimal protein
+        decimal fat
+        decimal carbs
+        text instructions
+    }
+
+    RECIPE_INGREDIENTS {
+        int recipe_id FK
+        int ingredient_id FK
+        decimal quantity
+        string unit
+    }
+
+    USER_ALLERGIES {
+        int user_id FK
+        int ingredient_id FK
+    }
+
+    USER_EXCLUDED_INGREDIENTS {
+        int user_id FK
+        int ingredient_id FK
+    }
+
+    FAVORITES {
+        int user_id FK
+        int recipe_id FK
+        datetime created_at
+    }
+
+    RECIPE_RATINGS {
+        int user_id FK
+        int recipe_id FK
+        int rating "1..5"
+        datetime created_at
+    }
+
+    USER_STOCK {
+        int id PK
+        int user_id FK
+        int ingredient_id FK
+        decimal quantity "CHECK >= 0"
+        string unit
+        datetime updated_at
+    }
+
+    MENUS {
+        int id PK
+        int user_id FK
+        date start_date
+        date end_date
+        int meals_per_day
+        int dishes_per_meal
+        int drinks_per_meal
+        datetime created_at
+    }
+
+    MENU_ITEMS {
+        int id PK
+        int menu_id FK
+        int recipe_id FK
+        date day_date
+        enum meal_type "breakfast|lunch|dinner|snack"
+        int position
+        bool is_drink
+    }
+
+    SHOPPING_LISTS {
+        int id PK
+        int menu_id FK
+        int user_id FK
+        datetime created_at
+    }
+
+    SHOPPING_LIST_ITEMS {
+        int id PK
+        int shopping_list_id FK
+        int ingredient_id FK
+        decimal required_qty
+        string unit
+        bool purchased
+    }
 ```
 
-**Traceability:** `NFR-SEC-02`, `NFR-SEC-03`, `C4-L2-spa/api`.
+## Описание сущностей
 
----
-
-## FR-02 (M) Настройка профиля и расчёт целевых КБЖУ
-
-**User story.** Как пользователь, я хочу указать антропометрию, цель и уровень активности, чтобы система рассчитала мои целевые КБЖУ.
-
-**Acceptance criteria.**
-
-```gherkin
-Feature: Расчёт целевых КБЖУ
-
-   Сценарий: Расчёт для мужчины с целью «поддержание»
-    Given пол = "male", вес = 80, рост = 180, возраст = 30, активность = 1.55, цель = "maintain"
-    When пользователь сохраняет профиль
-    Then BMR = 10*80 + 6.25*180 - 5*30 + 5 = 1780
-    And TDEE = 1780 * 1.55 = 2759
-    And целевая калорийность = 2759 (±1 ккал)
-
-   Сценарий: Расчёт для женщины с целью «похудение»
-    Given пол = "female", вес = 60, рост = 165, возраст = 28, активность = 1.375, цель = "lose"
-    Then BMR = 10*60 + 6.25*165 - 5*28 - 161 = 1320.25
-    And TDEE = 1320.25 * 1.375 = 1815.34
-    And целевая калорийность = TDEE * 0.85
-
-   Сценарий: Валидация границ
-    Given пользователь вводит вес ≤ 0 или рост ≤ 0
-    Then ответ содержит 422 и сообщение валидации
-```
-
-**Traceability:** «Расчёт целевых КБЖУ» из README.
-
----
-
-## FR-03 (M) Диетические ограничения и аллергены
-
-**User story.** Как пользователь, я хочу указать диетические ограничения, аллергии и исключённые продукты, чтобы система не предлагала блюда, нарушающие мои ограничения.
-
-**Acceptance criteria.**
-
-```gherkin
-Feature: Диетические ограничения
-
-   Сценарий: Учёт битовой маски при генерации меню
-    Given у пользователя активна маска "веган" (бит 2)
-    When система формирует меню
-    Then ни один рецепт в меню не содержит маску "веган" = 0
-    And рецепты с животными ингредиентами исключены из хромосомы ГА
-
-   Сценарий: Исключение аллергенов
-    Given у пользователя аллергия на "арахис"
-    When пользователь просматривает рецепты и меню
-    Then рецепты, содержащие арахис, не появляются ни в выдаче, ни в меню
-```
-
-**Traceability:** «Гибридные рекомендации», «Генетический алгоритм», `db/schema.sql` .
-
----
-
-## FR-04 (M) Просмотр и фильтрация рецептов
-
-**User story.** Как пользователь, я хочу искать и фильтровать рецепты по категории, калорийности, времени и сложности, чтобы быстро находить подходящие блюда.
-
-**Acceptance criteria.**
-
-```gherkin
-Feature: Поиск рецептов
-
-   Сценарий: Фильтр по калорийности
-    Given в БД есть рецепты с калорийностью 100, 250, 400, 600 ккал
-    When пользователь применяет фильтр калорийность от 200 до 500
-    Then в выдаче только рецепты 250 и 400 ккал
-
-   Сценарий: Комбинация фильтров
-    When пользователь применяет категория = "суп", время ≤ 30 мин, сложность = "простая"
-    Then в выдаче только супы, удовлетворяющие обоим условиям
-
-   Сценарий: Пустая выдача
-    When фильтры не дают результатов
-    Then возвращается 200 и пустой массив, без 500
-```
-
----
-
-## FR-05 (M) Учёт остатков продуктов
-
-**User story.** Как пользователь, я хочу вести учёт остатков продуктов, чтобы система не предлагала покупать уже имеющееся.
-
-**Acceptance criteria.**
-
-```gherkin
-Feature: Остатки продуктов
-
-   Сценарийo: Добавление остатка
-    Given пользователь выбрал ингредиент "мука"
-    When пользователь добавляет 500 г
-    Then запись user_stock создана/обновлена
-    And значение quantity не может быть отрицательным (CHECK в БД)
-
-   Сценарий: Вычет остатков при генерации покупок
-    Given требуется 1000 г муки, в остатках 300 г
-    When генерируется список покупок
-    Then в списке покупок мука с количеством 700 г
-```
-
-**Traceability:** формула `required = max(0, needed − stock)`, CHECK в БД.
-
----
-
-## FR-06 (M) Генерация меню
-
-**User story.** Как пользователь, я хочу сгенерировать меню на период до 31 дня, чтобы получить готовый сбалансированный рацион.
-
-**Acceptance criteria.**
-
-```gherkin
-Feature: Генерация меню
-
-   Сценарий: Успешная генерация
-    Given пользователь с настроенным профилем и ограничениями
-    When пользователь запрашивает меню на 7 дней с 3 приёмами по 2 блюда + 1 напиток
-    Then меню содержит 7 * 3 = 21 приём
-    And каждый приём содержит 2 блюда и 1 напиток
-    And отклонение калорийности меню от целевой ≤ 10 %
-    And повтор любого рецепта ≤ 3 раз
-    And время генерации ≤ 2 с
-
-   Сценарий: Калорийность дня вне диапазона
-    When сгенерированное меню содержит день с калорийностью < 900 или > 4000 ккал
-    Then такой результат не принимается и алгоритм перегенерирует день
-
-   Сценарий: Избранные рецепты имеют приоритет
-    Given у пользователя 3 избранных рецепта
-    When генерируется меню на 7 дней
-    Then вероятность попадания избранных рецептов выше остальных (вес ×10)
-```
-
-**Traceability:** «Генетический алгоритм», «Контрольные соотношения».
-
----
-
-## FR-07 (M) Ручная замена блюда в меню
-
-**User story.** Как пользователь, я хочу заменить блюдо в меню на альтернативу, чтобы учесть ситуативные предпочтения.
-
-**Acceptance criteria.**
-
-```gherkin
-Feature: Замена блюда
-
-   Сценарий: Альтернативы совместимы с ограничениями
-    Given пользователь выбрал блюдо для замены
-    When система показывает альтернативы
-    Then все альтернативы совместимы с диетическими масками, аллергиями и исключёнными продуктами
-
-  Сценарий: Замена сохраняет сбалансированность
-    When пользователь заменяет блюдо
-    Then отклонение калорийности приёма от целевой ≤ 5 %
-```
-
----
-
-## FR-08 (M) Генерация списка покупок
-
-**User story.** Как пользователь, я хочу получить список покупок на основе меню, чтобы не считать ингредиенты вручную.
-
-**Acceptance criteria.**
-
-```gherkin
-Feature: Список покупок
-
-  Сценарий: Вычет остатков
-    Given меню требует 5 ингредиентов, для 2 из них есть остатки
-    When генерируется список покупок
-    Then в списке только 5 позиций
-    And для 2 позиций количество = max(0, needed − stock)
-    And для остальных — полное количество
-
-  Сценарий: Группировка по категориям
-    Then позиции сгруппированы по категориям продуктов
-
-  Сценарий: Отметка «куплено»
-    When пользователь отмечает позицию как купленную
-    Then позиция переносится в остатки с количеством из списка
-    And в списке помечена как purchased = true
-```
-
----
-
-## FR-09 (S) Дашборд КБЖУ
-
-```gherkin
-Feature: Дашборд
-
-  Сценарий: Прогресс за сегодня
-    Given целевая калорийность 2000, потреблено 1500
-    Then прогресс-бар калорий = 75 %
-    And при потреблении > цели цвет прогресс-бара красный
-```
-
----
-
-## FR-10 (S) Рекомендации
-
-```gherkin
-Feature: Рекомендации
-
-  Сценарий: Гибридная оценка
-    Given у рецепта content = 1.0 (кухня совпала), collab = 4.5
-    Then итоговая оценка = 0.6 * 1.0 + 0.4 * (4.5 / 5) = 0.96
-```
-
----
-
-## NFR
-
-| ID | Требование | Метрика / критерий |
+| Таблица | Назначение | Ключевые ограничения |
 |---|---|---|
-| `NFR-PERF-01` | Время генерации меню ≤ 2 с на период до 31 дня | p95 ≤ 2 с |
-| `NFR-PERF-02` | Время отклика тяжёлой операции `/menu/optimize` ≤ 2 с при 100 одновременных пользователях | JMeter, 100 users |
-| `NFR-SEC-01` | Все SQL-запросы — только через PDO подготовленные выражения | code review, статический анализ |
-| `NFR-SEC-02` | Пароли хранятся как bcrypt-хеши через `password_hash()` | проверка БД |
-| `NFR-SEC-03` | Разграничение ролей user / admin на уровне API | тест-кейс FR-01 |
-| `NFR-SEC-04` | Вывод экранируется функцией `escapeHtml` | XSS-тест |
-| `NFR-SEC-05` | Конфигурационные файлы недоступны по HTTP | тест-кейс `.htaccess` |
-| `NFR-DATA-01` | Неотрицательность остатков на уровне БД (CHECK) | миграция в `db/schema.sql` |
-| `NFR-OBS-01` | Логирование действий и ошибок в `logs/` | наличие файлов |
-| `NFR-COMPAT-01` | Поддержка современных браузеров (Chrome, Firefox, Edge, Safari) | ручное тестирование `[УТОЧНИТЬ: список браузеров]` |
+| `users` | Учётные записи, антропометрия, цель, активность, битовая маска ограничений | `email UNIQUE`, `password_hash` — bcrypt |
+| `dietary_masks` | Справочник 10 диетических масок | `code UNIQUE`, `bit_position ∈ [0,9]` |
+| `user_dietary_masks` | Связь пользователя и активных масок (если не хранится целиком в `users.dietary_mask`) | `[СВЕРИТЬ: вариант хранения — в users или отдельной таблицей]` |
+| `ingredients` | Ингредиенты с КБЖУ на 100 г | `calories_per_100g ≥ 0` |
+| `ingredient_categories` | Категории ингредиентов (для группировки покупок) | `name UNIQUE` |
+| `cuisines` | Кухни мира (для контентной фильтрации) | `name UNIQUE` |
+| `recipe_categories` | Категории рецептов (супы, салаты, …) | `name UNIQUE` |
+| `recipes` | Рецепты с КБЖУ, инструкцией, ограничениями | `dietary_mask` — битовая маска рецепта |
+| `recipe_ingredients` | Состав рецепта | составной PK `(recipe_id, ingredient_id)` |
+| `user_allergies` | Аллергены пользователя | составной PK |
+| `user_excluded_ingredients` | Исключённые продукты | составной PK |
+| `favorites` | Избранные рецепты | составной PK, `created_at` |
+| `recipe_ratings` | Оценки рецептов 1–5 (источник для коллаборативной фильтрации) | `rating BETWEEN 1 AND 5` |
+| `user_stock` | Остатки продуктов на кухне | `quantity CHECK (quantity >= 0)` |
+| `menus` | Сгенерированное меню на период | `start_date ≤ end_date`, период ≤ 31 день `[СВЕРИТЬ]` |
+| `menu_items` | Позиции меню | `meal_type`, `position` |
+| `shopping_lists` | Список покупок на меню | связь 1:1 с `menus` `[СВЕРИТЬ]` |
+| `shopping_list_items` | Позиции списка покупок | `purchased` — отметка покупки |
+
+## Обоснование нормализации до 4NF
+
+- Устранены многозначные зависимости: диетические маски, аллергены и исключённые продукты вынесены в отдельные таблицы связи `user_*`.
+- Атрибуты рецепта (название, кухня, категория) отделены от его состава (`recipe_ingredients`), что исключает дублирование КБЖУ ингредиентов при каждом рецепте.
+- Оценки пользователей (`recipe_ratings`) не дублируются в `recipes` — это позволяет пересчитывать коллаборативную часть рекомендаций без денормализации.
+
+## Компромиссы
+
+- Большое количество JOIN при выборке меню и списка покупок — цена нормализации. Для целевой нагрузки пет-проекта оправдано; при росте нагрузки можно ввести кэш (Redis) или материализованное представление.
+- Битовая маска в `users.dietary_mask` и `recipes.dietary_mask` — осознанная денормализация ради скорости фильтрации, при этом справочник `dietary_masks` сохраняет расширяемость.
